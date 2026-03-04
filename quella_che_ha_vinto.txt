@@ -1,0 +1,123 @@
+package tablut_gui.ai.genetics;
+
+import lombok.AllArgsConstructor;
+import tablut_gui.ai.UtilityFunction;
+import tablut_gui.model.CellType;
+import tablut_gui.model.GameState;
+import tablut_gui.model.Player;
+import tablut_gui.model.TablutState;
+
+import java.util.Random;
+
+
+/// //////////////////
+/// DO NOT RUN MODIFIED TO MAKE COMPILE
+/// //////////////////
+
+@AllArgsConstructor
+public class WhiteGeneticUtilityFunctionV4_Simmetrica implements UtilityFunction {
+
+    private static Random random = new Random();
+    private static double n = Double.NaN;
+    private static double[][] positionsValue = new double[][] {
+            {0, 20, 20,-6, -6, -6,20, 20, 0},
+            {20, 1, 1, -5, -6, -5, 1,  1, 20},
+            {20, 1, 4,  1, -2,  1, 4,  1, 20},
+            {-6,-5, 1,  1,  1,  1, 1, -5, -6},
+            {-6,-6,-2,  1,  2,  1,-2, -6, -6},
+            {-6,-5, 1,  1,  1,  1, 1, -5, -6},
+            {20, 1, 4,  1, -2,  1, 4,  1, 20},
+            {20, 1, 1, -5, -6, -5, 1,  1, 20},
+            {0, 20, 20,-6, -6, -6,20, 20, 0}};
+
+
+    private WhiteWeights weights;
+
+
+    @Override
+    public double getUtility(TablutState state, Player player) {
+
+        GameState gs = state.getGameState();
+
+        if(gs == GameState.BLACK_WIN) return Double.NEGATIVE_INFINITY;
+        if(gs == GameState.WHITE_WIN) return Double.POSITIVE_INFINITY;
+        if(gs == GameState.DRAW) return 0;
+
+
+        int playerPawnNum = state.getPawnNumber(player);
+        int opponentPawnNum = state.getPawnNumber(player.getOpponent());
+
+
+        //4, -1, 1, 1, 1/10, 0
+        return weights.getPlayerPawnNumW() * playerPawnNum -
+                weights.getOpponentPawnNumW() *1.5* opponentPawnNum +
+                getKingExitBonus(state) +
+                getKingEncirclementMalus(state) +
+                weights.getKingPositionW() * getKingPositionValue(state) +
+                weights.getKingWhiteNeighborsW() * getKingWhiteNeighborsBonus(state)
+                //+ state.getFreeRows()*3 -
+                //state.getKingNearBlackPawns()
+;
+        //+ (random.nextDouble()-0.5)/10;
+    }
+
+    private double getKingExitBonus(TablutState state){
+        int kingExits = state.getKingImmediateExit();
+        double kingExitBonus = 0;
+
+        if(state.getTurn()==Player.WHITE){
+            if(kingExits>0) kingExitBonus = Double.MAX_VALUE;
+        }
+        else{
+            kingExitBonus = switch(kingExits){
+                case 0 -> -2;
+                case 1 -> 5;
+                default -> Double.MAX_VALUE;
+            };
+        }
+
+        return kingExitBonus;
+    }
+
+    private double getKingEncirclementMalus(TablutState state){
+        double kingEncirclementMalus = 0;
+
+        int num = state.getNumOfKingBlackNeighbors();
+        if(state.isKingInOrNearToThrone()){
+
+            kingEncirclementMalus = switch(num){
+                case 0 -> 0;
+                case 1 -> -1;
+                case 2 -> -2;
+                case 3 -> -8;
+                default -> -Double.MAX_VALUE;
+            };
+        }
+        else {
+
+            kingEncirclementMalus = switch(num){
+                case 0 -> 0;
+                case 1 -> -2;
+                case 2 -> -4;
+                default -> -Double.MAX_VALUE;
+            };
+        }
+
+        return kingEncirclementMalus;
+    }
+
+    private double getKingPositionValue(TablutState state){
+        var kingCell = state.getKingCell();
+        return positionsValue[kingCell.getI()][kingCell.getJ()];
+    }
+
+    private double getKingWhiteNeighborsBonus(TablutState state){
+        double kingEncirclementBonus = 0;
+        var kingCell = state.getKingCell();
+
+        kingEncirclementBonus = state.getNumOfNeighborPawnsOfPlayer(kingCell.getI(), kingCell.getJ(), Player.WHITE);
+
+        return kingEncirclementBonus;
+    }
+
+}
